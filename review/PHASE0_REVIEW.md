@@ -17,8 +17,10 @@ The following are no longer open scope questions:
 - [x] Andormu owns logical dispatch admission/backpressure; Compute owns physical resource admission/placement.
 - [x] Standard infrastructure is reused rather than reimplemented by Andormu.
 - [x] External engines normally remain the authority for their own internal DAGs and are integrated as opaque task executions.
+- [x] TaskDefinition, TaskSpec, Capability, ExecutionBinding, and ExecutionTarget have separate responsibilities.
+- [x] Provider class and completion model are independent ExecutionBinding dimensions.
 
-These anchors are recorded in ADR-0013 through ADR-0018.
+The execution-platform boundary is recorded in ADR-0013 through ADR-0018. The reference-workflow contract decisions are recorded in `WORKFLOW_SPEC.md`, `TASK_SPEC.md`, `EXECUTION_BINDING.md`, and `PRODUCTION_DATA_LOOP_EXAMPLE.md` and remain conceptual rather than schema-frozen.
 
 ## Critical review questions
 
@@ -26,10 +28,10 @@ These anchors are recorded in ADR-0013 through ADR-0018.
 
 Use `docs/01-architecture/PRODUCTION_DATA_LOOP_EXAMPLE.md` as a recurring conformance scenario.
 
-- [ ] Can one vendor-neutral `WorkflowSpec` model the bag and normal-data workflows without cloud/Kubernetes/Flink-specific graph semantics?
-- [ ] Can business-required subsets of safety/preprocess/decode/encode/index/result-check nodes be expressed cleanly without a universal mega-workflow?
-- [ ] Is workflow-submission idempotency sufficient for duplicate OSS/Kafka trigger delivery?
-- [ ] Is `1 artifact = 1 WorkflowRun` acceptable for operationally meaningful large files, with batching/bounded fan-out guidance for tiny files?
+- [x] Can vendor-neutral `WorkflowSpec` contracts model the bag and normal-data workflows without cloud/Kubernetes/Flink-specific graph semantics?
+- [x] Can business-required subsets of safety/preprocess/decode/encode/index/result-check nodes be expressed cleanly without a universal mega-workflow?
+- [x] Is workflow-submission idempotency sufficient for duplicate OSS/Kafka trigger delivery at the semantic boundary?
+- [x] Is `1 artifact = 1 WorkflowRun` acceptable for operationally meaningful large files, with batching/bounded fan-out guidance for tiny files?
 
 ### State and dependency
 
@@ -77,12 +79,12 @@ Use `docs/01-architecture/PRODUCTION_DATA_LOOP_EXAMPLE.md` as a recurring confor
 
 - [ ] What is the minimum common adapter protocol: dispatch, observe, cancel, optional renew/heartbeat?
 - [ ] Which deferred-completion mechanisms are mandatory in Phase 1: callback, event, poll, watch?
-- [ ] Is inline vs deferred completion modeled as execution-contract capability rather than DAG node kind?
-- [ ] Where does capability -> execution target resolution live?
+- [x] Is inline vs deferred completion modeled as an ExecutionBinding dimension rather than a DAG node kind?
+- [x] Is capability-to-environment realization represented explicitly without embedding an execution target in the DAG?
 - [ ] What is the minimum execution-adapter protocol for persistent services?
 - [ ] How are Flink/Spark/data-engine jobs mapped without duplicating their internal DAG?
 - [ ] How is an unobservable/lost async operation represented?
-- [ ] What is the output-contract validation boundary before a TaskRun can release downstream dependencies?
+- [x] What is the output-contract validation boundary before a TaskRun can release downstream dependencies?
 
 ### Logical admission / workflow granularity
 

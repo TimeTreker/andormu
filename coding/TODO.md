@@ -16,7 +16,7 @@ After the Design Gate, likely implementation work includes:
 - [ ] Define execution adapter SDK/protocol.
 - [ ] Define persistent-service execution adapter contract.
 - [ ] Define asynchronous submit/observe/callback protocol.
-- [ ] Define capability/execution-target resolver port.
+- [ ] Define Capability-to-ExecutionBinding resolver port.
 - [ ] Implement logical dispatch admission/backpressure after semantics are approved.
 - [ ] Implement one reference adapter only after boundary tests exist.
 - [ ] Implement API/CLI.

@@ -32,7 +32,8 @@
                         ▼
 ┌───────────────────────────────────────────────────────────────┐
 │               Execution / Runtime Adapters                    │
-│  service | async service | worker | compute job | subworkflow │
+│ provider: SERVICE | WORKER | COMPUTE | EXTERNAL_RUNTIME       │
+│ completion: INLINE | DEFERRED                                 │
 └───────────────────────┬───────────────────────────────────────┘
                         │ resource intent / backend actions
                         ▼
@@ -80,16 +81,13 @@ Andormu persists transition and re-evaluates graph
 
 ## Execution target diversity
 
-Andormu deliberately supports multiple task-execution shapes behind the same logical TaskRun/TaskAttempt model:
+Andormu deliberately supports multiple execution realizations behind the same logical TaskRun/TaskAttempt model. Provider and completion are separate dimensions resolved by a pinned `ExecutionBinding`:
 
 ```text
 TaskAttempt
     │
-    ├── persistent service call
-    ├── asynchronous service operation
-    ├── durable worker/task-queue execution
-    ├── external runtime job
-    └── compute-backed job
+    ├── provider = SERVICE | WORKER | COMPUTE | EXTERNAL_RUNTIME
+    └── completion = INLINE | DEFERRED
 ```
 
 This is why task lifecycle, service lifecycle, and compute allocation lifecycle are separate concepts.

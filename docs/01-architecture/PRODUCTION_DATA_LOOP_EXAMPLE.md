@@ -1,344 +1,290 @@
-# Production Data Closed-Loop Reference Workflow
+# Production Data Loop Reference Workflows
 
 ## Purpose
 
-This document is the canonical Phase-0 production example used to test whether Andormu/Timeways abstractions remain useful, vendor-neutral, and operationally realistic.
+This is the canonical Phase-0 regression scenario for Andormu's workflow contract. It tests whether Bronze-owned contracts can express two real production DAGs while keeping domain selection, transport, service topology, compute backends, and physical scheduling outside graph semantics.
 
-It is illustrative rather than a finalized schema.
+The examples are conceptual and deliberately do **not** define a JSON, YAML, or Proto schema.
 
-## Scenario
-
-Two broad artifact classes are uploaded to object storage:
-
-1. bag/log-style files;
-2. normal data files.
-
-Upload completion produces domain events through Kafka or an equivalent mature message system.
-
-```text
-                         Object Storage
-                              │
-                       upload completed
-                              │
-                 ┌────────────┴────────────┐
-                 ▼                         ▼
-          bag.file.uploaded         data.file.uploaded
-                Kafka                     Kafka
-                 │                         │
-                 └────────────┬────────────┘
-                              ▼
-                         Zidormi Ingress
-                              │
-                     domain interpretation
-                     workflow selection
-                              │
-                 ┌────────────┴────────────┐
-                 ▼                         ▼
-          bag-processing-vN        data-processing-vM
-                 │                         │
-                 └────────────┬────────────┘
-                              ▼
-                           Andormu
-```
-
-Kafka is transport, not workflow truth. Zidormi owns file/domain classification and workflow selection. Andormu must not inspect `.bag`, file extensions, or business metadata to decide which DAG runs.
-
-## Different business DAGs
-
-The two artifact classes do not need the same nodes.
-
-A possible bag workflow:
-
-```text
-                     Bag ArtifactRef
-                           │
-                           ▼
-                       Safety
-                           │
-                           ▼
-                         Probe
-                           │
-                           ▼
-                      Preprocess
-                           │
-                  ┌────────┴─────────┐
-                  ▼                  ▼
-               Decoder          Metadata
-                  │                  │
-                  ▼                  │
-               Encoder               │
-                  │                  │
-                  └─────────┬────────┘
-                            ▼
-                           Index
-                            │
-                            ▼
-                       Result Check
-                            │
-                            ▼
-                         Publish
-```
-
-A possible normal-data workflow:
-
-```text
-                   Normal ArtifactRef
-                           │
-                           ▼
-                       Safety
-                           │
-                           ▼
-                      Preprocess
-                           │
-                  ┌────────┴────────┐
-                  ▼                 ▼
-               Encoder          Metadata
-                  │                 │
-                  └────────┬────────┘
-                           ▼
-                          Index
-                           │
-                           ▼
-                      Result Check
-                           │
-                           ▼
-                        Publish
-```
-
-Another business workflow may omit decoder, encoder, metadata, publish, or other nodes entirely.
-
-**The domain workflow owns which nodes and edges exist.** Do not create a universal mega-workflow merely to represent every possible file type.
-
-## Logical nodes, heterogeneous execution
-
-The logical DAG remains independent of how each Task is executed.
-
-Illustrative mappings:
-
-| Logical capability | Possible realization |
-|---|---|
-| safety scan | persistent service + inline or deferred completion |
-| probe / metadata | persistent service + inline completion |
-| preprocess | worker, deferred service, Flink/Spark job |
-| decode | persistent decoder service + deferred completion |
-| encode | persistent GPU service or compute job |
-| index | persistent service or deferred bulk-index operation |
-| result check | service/worker implementing domain validation |
-| publish | deferred external service operation |
-
-These are examples, not canonical backend bindings.
-
-The same logical capability may move from service to worker or compute job over time without changing the business DAG if its logical contract remains compatible.
-
-## Service is not the same axis as async
-
-A service is about **executor lifecycle**.
-
-An asynchronous/deferred task is about **completion protocol**.
-
-### Persistent service with inline completion
-
-```text
-Andormu                  Service
-   │                        │
-   │ Dispatch(attempt A1)   │
-   ├───────────────────────►│
-   │                        │ execute
-   │◄───────────────────────┤
-   │ terminal result        │
-```
-
-### Persistent service with deferred completion
-
-```text
-Andormu                  Decoder Service
-   │                           │
-   │ Submit(attempt A1)        │
-   ├──────────────────────────►│
-   │◄──────────────────────────┤
-   │ accepted + handle         │
-   │                           │ continues processing
-   │◄──── event/callback ──────┤
-   │ or Observe(handle)        │
-   │                           │
-   ▼                           │
-terminal outcome
-```
-
-### Compute/data-engine job with deferred completion
-
-```text
-Andormu
-   │ TaskExecutionRequest
-   ▼
-Adapter
-   │
-   ├── Flink / Spark
-   ├── Kubernetes / Slurm / Ray
-   └── cloud compute
-   │
-   ▼
-ExecutionHandle
-   │
-   ▼
-observe terminal outcome
-```
-
-From Andormu's perspective, deferred service work and compute/data-engine jobs share a useful high-level pattern: submit/accept, retain an opaque handle, observe later, then reconcile a terminal outcome.
-
-## Standard infrastructure is reused
-
-This reference workflow assumes mature infrastructure rather than replacing it.
-
-Examples:
-
-```text
-OSS/S3/TOS/COS     artifact storage
-Kafka/MQ           domain-event transport / worker transport
-Flink/Spark        stream/batch data processing where appropriate
-Kubernetes/Slurm   compute execution
-Ray                distributed runtime where appropriate
-GPU virtualization Compute Platform responsibility
-OpenTelemetry      traces/metrics
-```
-
-Andormu owns none of their internal scheduling/data-processing semantics.
-
-## Artifact flow
-
-Large files never move through Andormu control-plane storage.
+## Ownership and ingress
 
 ```text
 Object Storage
-     │
-     │ ArtifactRef
-     ▼
-Zidormi -> WorkflowSpec(inputs=ArtifactRef)
-     │
-     ▼
+      │ upload-completed domain event
+      ▼
+Kafka or equivalent transport
+      │ at-least-once delivery
+      ▼
+Zidormi
+      │ classify artifact + select exact workflow revision
+      ▼
+bag-processing-v3 OR normal-file-processing-v5
+      │ WorkflowSpec + ArtifactRef + submission idempotency key
+      ▼
 Andormu
-     │
-     │ resolved ArtifactRef
-     ▼
-Task execution backend
 ```
 
-The same applies to large decoder outputs, embeddings, checkpoints, indexes, and other artifacts.
+Kafka is transport, not workflow truth. Zidormi owns file classification and workflow selection. Andormu never inspects `.bag`, filename extensions, or domain metadata to choose a DAG.
 
-## Workflow submission idempotency
+## Canonical business graphs
 
-Kafka and similar transports are at-least-once. Duplicate domain events must not accidentally create duplicate logical workflows when they represent the same business trigger.
-
-The domain ingress should submit a stable idempotency identity derived from the business trigger, for example conceptually:
+### bag-processing-v3
 
 ```text
-trigger event identity
-+ artifact immutable/version identity
-+ selected workflow revision/policy identity
+                safety
+                   │
+                   ▼
+                 probe
+                   │
+                   ▼
+              preprocess
+                   │
+          ┌────────┴─────────┐
+          ▼                  ▼
+       decoder            metadata
+          │                  │
+          ▼                  │
+       encoder               │
+          │                  │
+          └─────────┬────────┘
+                    ▼
+                  index
+                    │
+                    ▼
+              result_check
+                    │
+                    ▼
+                 publish
 ```
 
-Workflow-submission idempotency and TaskAttempt dispatch idempotency are separate layers:
+### normal-file-processing-v5
 
 ```text
-duplicate Kafka/domain trigger
-        ↓
-WorkflowRun submission idempotency
-
-duplicate execution delivery
-        ↓
-same TaskAttempt dispatch identity
+               safety
+                  │
+                  ▼
+              preprocess
+                  │
+          ┌───────┴────────┐
+          ▼                ▼
+       encoder          metadata
+          │                │
+          └───────┬────────┘
+                  ▼
+                index
+                  │
+                  ▼
+             result_check
+                  │
+                  ▼
+               publish
 ```
 
-The exact contract remains a Phase-0 review item.
+The graphs intentionally differ. The normal-file workflow has no `probe` or `decoder`; another valid workflow may omit any other node. Zidormi owns those business choices. Andormu must not require a universal mega-workflow.
 
-## Logical admission example
+## Logical contract view
 
-Suppose 100,000 bag workflows reach `decode`, but the persistent decoder capability can safely process only 200 active attempts.
+Representative exact logical contracts could be:
+
+| Node | TaskDefinition revision | Capability |
+|---|---|---|
+| `safety` | `data.artifact.safety` revision `v2` | `data.artifact.safety@v2` |
+| `probe` | `data.bag.probe` revision `v1` | `data.bag.probe@v1` |
+| `preprocess` | `data.artifact.preprocess` revision `v4` | `data.artifact.preprocess@v4` |
+| `decoder` | `data.bag.decode` revision `v3` | `data.bag.decode@v3` |
+| `encoder` | `data.embedding.encode` revision `v2` | `data.embedding.encode@v2` |
+| `metadata` | `data.metadata.extract` revision `v2` | `data.metadata.extract@v2` |
+| `index` | `data.index.write` revision `v4` | `data.index.write@v4` |
+| `result_check` | `data.result.validate` revision `v2` | `data.result.validate@v2` |
+| `publish` | `data.result.publish` revision `v3` | `data.result.publish@v3` |
+
+These names are stable regression examples, not a normative global catalog.
+
+A representative decoder occurrence says only:
 
 ```text
-100,000 dependency-ready Decode TaskRuns
+TaskSpec decoder
+  TaskDefinition = data.bag.decode revision v3
+  depends-on = preprocess
+  input artifact = output(preprocess, artifact)
+  output decoded-artifacts = ArtifactRef[]
+```
+
+No DAG node says HTTP, gRPC, Kafka, service, worker, Flink, Kubernetes, Slurm, cloud provider, endpoint, or GPU node.
+
+## Environment execution view
+
+Execution realization is resolved separately and pinned into the `ExecutionSnapshot`:
+
+| Capability | Provider | Completion | Illustrative target |
+|---|---|---|---|
+| `data.artifact.safety@v2` | `SERVICE` | `INLINE` | `safety.production` |
+| `data.bag.probe@v1` | `SERVICE` | `INLINE` | `bag-probe.production` |
+| `data.artifact.preprocess@v4` | `EXTERNAL_RUNTIME` | `DEFERRED` | `preprocess.runtime.v4` |
+| `data.bag.decode@v3` | `SERVICE` | `DEFERRED` | `decoder.production` |
+| `data.embedding.encode@v2` | `COMPUTE` | `DEFERRED` | `embedding.encoder.v2` |
+| `data.metadata.extract@v2` | `WORKER` | `DEFERRED` | `metadata.worker.v2` |
+| `data.index.write@v4` | `SERVICE` | `DEFERRED` | `index.production` |
+| `data.result.validate@v2` | `WORKER` | `DEFERRED` | `result-check.worker.v2` |
+| `data.result.publish@v3` | `SERVICE` | `DEFERRED` | `publish.production` |
+
+This table represents one possible production environment. Another environment may bind the same exact capabilities differently without changing either WorkflowSpec or TaskDefinition.
+
+### Service and completion are separate axes
+
+```text
+short service call       = SERVICE + INLINE
+long decoder operation   = SERVICE + DEFERRED
+GPU-backed encoding      = COMPUTE + DEFERRED
+```
+
+`SERVICE`, `WORKER`, `COMPUTE`, and `EXTERNAL_RUNTIME` are binding provider classes, not parallel Task kinds. `INLINE` and `DEFERRED` are completion models.
+
+For deferred work, the binding may support `CALLBACK`, `POLL`, `EVENT`, or `WATCH`. DAG dependency evaluation still consumes one normalized logical terminal outcome.
+
+## Artifact contract
+
+Large file content never becomes WorkflowSpec or control-plane event payload. The workflow carries a durable reference with enough identity and integrity information to resolve the same object later:
+
+```text
+ArtifactRef
+  provider
+  uri
+  immutable version
+  checksum/digest
+  size
+  media type
+  bounded metadata reference
+```
+
+For example, the ingress ArtifactRef may resolve to `oss://bucket/data/12345.bag`. Credentials are always referenced separately, never embedded in the ArtifactRef.
+
+Task outputs flow into downstream inputs by reference:
+
+```text
+safety.safe-artifact
+        │ ArtifactRef
+        ▼
+preprocess.artifact
+        │ ArtifactRef
+        ▼
+decoder.artifact
+```
+
+The same rule applies to decoded frames, embeddings, checkpoints, indexes, and publication manifests.
+
+## Workflow-submission idempotency
+
+At-least-once delivery may repeat the same event:
+
+```text
+bag.file.uploaded event E100
+        │
+        ├── delivery 1 ──► Zidormi
+        └── redelivery ──► Zidormi
+```
+
+Zidormi submits a stable idempotency key derived from the business trigger identity, immutable artifact/version identity, and selected workflow revision/policy identity. Within its defined scope, repeated submission with the same key and equivalent request returns the existing WorkflowRun rather than creating another.
+
+The contract must reject reuse of the same key with a materially different submission; it must not silently alias two business requests.
+
+Two idempotency domains remain distinct:
+
+```text
+duplicate domain trigger     -> WorkflowRun submission idempotency
+duplicate dispatch delivery  -> same TaskAttempt dispatch identity
+retry after task failure     -> new TaskAttempt identity
+```
+
+## Logical admission versus ResourceIntent
+
+Suppose the environment policy allows at most 200 active decoder attempts:
+
+```text
+100,000 dependency-ready decoder TaskRuns
                      │
                      ▼
-             Andormu logical admission
-                     │
-              max active = 200
+AdmissionPolicy decoder.production
+          max active attempts = 200
                      │
                      ▼
-              Decoder capability
+              decoder attempts
 ```
 
-Flooding the decoder and relying only on HTTP 429 is an orchestration failure.
+The policy is referenced by the decoder ExecutionBinding. It is not part of `data.bag.decode@v3` and does not belong in the WorkflowSpec.
 
-This is distinct from a GPU encoder task waiting because no physical accelerator is available:
+The encoder's physical requirement is different:
 
 ```text
-Encoder logically admitted
-          │
-          ▼
-TaskAttempt / ResourceIntent
-          │
-          ▼
-Compute Platform
-          │
-     physical queue
-     quota / placement
-     GPU / MIG / vGPU
+encoder logically admitted by Andormu
+              │
+              ▼
+TaskExecutionRequest + ResourceIntent(GPU)
+              │
+              ▼
+Compute Platform physical admission
+     quota / queue / placement / accelerator
 ```
 
-Andormu owns the first decision; Compute owns the second.
+Andormu owns the first decision. Compute owns the second. They must not be collapsed into a single “GPU capacity” field.
 
-## Data-engine and external-workflow boundary
+## Two validation layers
 
-If `preprocess` is implemented by a Flink job whose internal graph is:
+### Execution-contract validation
+
+Andormu validates that an observation matches the pinned attempt and TaskDefinition contract before accepting success. If a decoder reports terminal success but omits required `decoded-artifacts`, the attempt cannot become logically successful.
+
+```text
+backend reports success
+        │
+        ▼
+correlate exact TaskAttempt
+        │
+        ▼
+validate required output contract
+        │ failure
+        ▼
+record contract failure; do not release success dependencies
+```
+
+### Business result validation
+
+`result_check` is a normal domain-authored task. It may verify frame counts, index completeness, data quality, or publication invariants. Andormu executes it but does not own those business rules.
+
+The two layers are never interchangeable: structural execution-contract validity is a control-plane responsibility; business quality is explicit work in the DAG.
+
+## External engine boundary
+
+If `preprocess` is realized by a Flink job whose internal graph is:
 
 ```text
 Source -> Parse -> Filter -> Window -> Aggregate -> Sink
 ```
 
-Andormu normally sees one logical `preprocess` TaskAttempt.
-
-Likewise a cloud workflow or training runtime may be one opaque task execution when it owns its internal DAG.
-
-Do not mirror the same internal DAG in two orchestration systems.
-
-## Result Check vs execution-contract validation
-
-A business `Result Check` node is domain work, for example validating business completeness or data quality.
-
-It is distinct from Andormu validating a task's declared output contract before accepting logical task success.
-
-```text
-backend says terminal success
-        │
-        ▼
-correlate exact attempt
-        │
-        ▼
-validate execution/output contract
-        │
-        ▼
-persist logical outcome
-        │
-        ▼
-release downstream dependencies
-```
-
-The exact validation contract remains to be designed.
+Andormu normally sees one opaque `preprocess` TaskAttempt. The same applies to Spark, a training runtime, or a cloud workflow that owns its internal execution graph. There must be one orchestration authority per DAG layer.
 
 ## Workflow granularity
 
-`1 large artifact = 1 WorkflowRun` is appropriate when the artifact is operationally meaningful and deserves independent tracing/recovery.
+`1 large artifact = 1 WorkflowRun` is appropriate when the artifact is operationally meaningful and deserves independent tracing/recovery. For millions of tiny objects, Zidormi should batch/partition them or request bounded fan-out so orchestration overhead does not dominate useful work.
 
-For millions of tiny files/operations, Zidormi should batch/partition inputs or request bounded fan-out so orchestration overhead does not dominate useful work.
+## Review results closed by this reference
 
-## Phase-0 conformance questions
+This reference establishes four contract decisions:
 
-Every proposed Andormu design should be tested against this scenario:
+1. DAG nodes describe logical work and graph control, never deployment/runtime kinds.
+2. TaskDefinition is the reusable logical contract; TaskSpec is one graph occurrence of that exact contract.
+3. ExecutionBinding maps an exact capability to an environment realization and is pinned separately from the DAG.
+4. `bag-processing-v3` and `normal-file-processing-v5` are permanent Phase-0 regression workflows for later protocol, state, retry, timeout, cancellation, admission, and persistence reviews.
 
-1. Can bag and normal-data workflows use different logical DAGs without Andormu learning file semantics?
-2. Can each Task change execution realization without changing DAG meaning?
-3. Can persistent services use inline or deferred completion?
-4. Can Flink/Spark/Kubernetes/Slurm/cloud jobs remain external engines?
-5. Can logical service backpressure be enforced separately from GPU/resource scheduling?
-6. Can duplicate trigger delivery and duplicate task dispatch remain distinct idempotency domains?
-7. Can every transition be recovered and explained without relying on backend-native objects as canonical truth?
+## Conformance questions for later designs
+
+Every later design must preserve the following:
+
+1. Can both reference DAGs be expressed without Andormu learning file semantics?
+2. Can a capability change provider or target without changing logical graph meaning?
+3. Can a persistent service use either inline or deferred completion?
+4. Can data engines and compute platforms remain external execution authorities?
+5. Can logical admission remain distinct from physical resource admission?
+6. Can duplicate workflow submission and duplicate attempt dispatch remain separate idempotency domains?
+7. Can execution success be contract-validated independently from the business `result_check` task?
+8. Can every run pin exact logical and execution-binding revisions without freezing a vendor backend object into the DAG?

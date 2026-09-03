@@ -16,6 +16,7 @@
 - attempt id and number,
 - state and transition timestamps,
 - execution adapter,
+- pinned ExecutionBinding revision, provider/completion model, and logical target,
 - opaque backend execution handle,
 - failure descriptor,
 - resource intent/allocation reference,

@@ -37,6 +37,17 @@ Compute Platform owns **physical resource admission**:
 - topology,
 - reservations.
 
+## AdmissionPolicy placement
+
+An environment `ExecutionBinding` may reference an immutable `AdmissionPolicy` revision such as:
+
+```text
+AdmissionPolicy decoder.production revision 4
+  max-active-attempts = 200
+```
+
+The policy protects a logical capability/target; it is not part of TaskDefinition or TaskSpec. It also does not describe physical CPU/GPU capacity. Phase 0 does not yet define the complete policy schema or fairness dimensions.
+
 ## Proposed readiness split
 
 A task may be dependency-ready but not dispatch-admitted.
@@ -62,7 +73,7 @@ Andormu must not require one capacity mechanism. Capacity may come from:
 - service-provided capacity/429 signals,
 - queue depth,
 - adapter feedback,
-- Compute Platform admission status.
+- Compute Platform admission status as execution feedback, without treating physical capacity as the logical policy itself.
 
 ## Fairness
 

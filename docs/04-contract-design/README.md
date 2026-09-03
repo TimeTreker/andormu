@@ -7,6 +7,8 @@ Proposed contract families:
 - WorkflowSpec / WorkflowRevision
 - ExecutionSnapshot
 - TaskDefinition / TaskSpec
+- Capability / ExecutionBinding / ExecutionTarget
+- AdmissionPolicy / ResourceIntent
 - WorkflowRun / TaskRun / TaskAttempt
 - RetryPolicy / TimeoutPolicy
 - FailureDescriptor

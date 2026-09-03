@@ -6,12 +6,12 @@ This document records contract requirements only; it is not yet a normative sche
 
 - stable WorkflowRun / TaskRun / TaskAttempt identity,
 - immutable task-definition/snapshot reference,
-- capability or execution-target reference,
+- exact capability and pinned ExecutionBinding/ExecutionTarget references,
 - compact resolved inputs and ArtifactRefs,
 - timeout/cancel/retry context,
 - trace/correlation context,
 - idempotency identity,
-- optional ResourceIntent.
+- optional ResourceIntent resolved from the ExecutionBinding.
 
 ## Adapter must support
 

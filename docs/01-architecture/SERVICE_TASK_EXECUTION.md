@@ -43,31 +43,32 @@ Starting a new process for every logical task would be the wrong abstraction for
 
 ## Canonical rule
 
-`TaskSpec` describes **what logical capability is required and the execution contract**, while adapters/runtime infrastructure decide how that capability is reached.
+`TaskDefinition` describes **what logical capability and execution contract are required**. `TaskSpec` places one exact definition in the graph. An environment `ExecutionBinding` selects provider, completion model, adapter, and stable target; adapter/runtime infrastructure then decides how that target is physically reached.
 
 The canonical spec SHOULD NOT embed physical instance addresses such as fixed IPs or transient Pod names.
 
-Prefer a stable capability or execution-target reference:
+The TaskDefinition requires a stable capability:
 
 ```text
-capability: data.video.decode@v2
+capability = data.video.decode@v2
 ```
 
 rather than:
 
 ```text
-endpoint: http://10.23.34.18:8912
+endpoint = http://10.23.34.18:8912
 ```
+
+Even a stable ExecutionTarget belongs in the ExecutionBinding, not in the WorkflowSpec.
 
 ## Completion semantics
 
-A service-backed TaskAttempt must have explicit observable completion semantics. Supported patterns may include:
+A service-backed TaskAttempt must have an explicit completion model in its pinned ExecutionBinding. Phase 0 distinguishes `INLINE` from `DEFERRED`; deferred observation may use:
 
-1. synchronous request/response for short work;
-2. asynchronous submit + callback/event;
-3. asynchronous submit + poll/observe;
-4. worker lease / task queue acknowledgement;
-5. backend execution handle observation.
+1. callback;
+2. event;
+3. poll/observe;
+4. watch.
 
 A persistent TCP/HTTP connection must not be required for the whole task duration.
 

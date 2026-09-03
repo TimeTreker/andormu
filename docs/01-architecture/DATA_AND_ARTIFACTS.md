@@ -10,11 +10,13 @@ Large data uses references:
 
 ```text
 ArtifactRef
+  provider
   uri / locator
+  immutable version
   media_type
-  digest
+  checksum / digest
   size (optional)
-  metadata (bounded)
+  metadata_ref or bounded metadata
 ```
 
 Examples include datasets, model files, checkpoints, logs, videos, and simulation outputs.

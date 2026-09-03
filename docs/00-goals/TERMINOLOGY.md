@@ -11,8 +11,12 @@
 | ExecutionSnapshot | Proposed fully resolved immutable snapshot pinned by one WorkflowRun. |
 | WorkflowRun | One logical execution of an ExecutionSnapshot. |
 | NodeSpec | One graph-semantic node in a WorkflowSpec. Node kind describes logical graph behavior, not runtime/deployment mechanism. |
-| TaskDefinition | Reusable versioned logical executable-task contract. |
-| TaskSpec | One task occurrence inside a workflow; binds logical capability/interface plus inputs, policies, dependencies, and optional resource intent. |
+| TaskDefinition | Reusable, immutable, versioned logical task contract: interface, semantic capability, retry safety, idempotency requirements, and logical defaults. It contains no environment execution target. |
+| TaskSpec | One occurrence of an exact TaskDefinition inside a WorkflowSpec; binds graph position, inputs/outputs, dependencies, and permitted logical policy overrides. |
+| Capability | Exact versioned semantic execution requirement used to match a TaskDefinition to compatible environment realizations. |
+| ExecutionBinding | Immutable, environment-scoped mapping from an exact Capability to provider, completion model, adapter, stable ExecutionTarget, and applicable execution-policy references. It is pinned outside the DAG. |
+| ExecutionTarget | Stable logical route interpreted by an execution adapter; distinct from a transient endpoint and from the backend ExecutionHandle returned for an attempt. |
+| AdmissionPolicy | Versioned logical dispatch constraint referenced by an ExecutionBinding or workflow policy; distinct from physical resource capacity. |
 | TaskRun | Proposed logical execution of a TaskSpec within a WorkflowRun. |
 | TaskAttempt | Proposed concrete attempt to fulfill a TaskRun. Its execution may be realized by a persistent service, deferred operation, worker, data engine, external workflow/job, or compute job. |
 | ExecutionRealization | The adapter/backend mechanism used to fulfill one TaskAttempt. It is separate from DAG topology and logical Task meaning. |
@@ -22,7 +26,7 @@
 | PhysicalAdmission | Compute/cloud/platform decision about quota, queue, accelerator/CPU availability, placement, topology, reservation, or preemption. |
 | DependencyRule | Predicate determining when a downstream node becomes runnable or skipped. |
 | Finalizer | Explicit cleanup/post-run node(s) evaluated under dedicated finalization semantics. |
-| ResourceIntent | Resource requirement passed through to the Compute Platform; not an allocation. |
+| ResourceIntent | Physical resource request supplied by an execution binding and passed through to the Compute Platform; not an allocation or a logical admission limit. |
 | ExecutionHandle | Opaque handle returned by an execution adapter for one TaskAttempt. |
 | Redrive | Continue the same failed WorkflowRun from failed/unreached work using the same ExecutionSnapshot. |
 | Restart | Create a new WorkflowRun from the beginning using a selected snapshot/revision. |

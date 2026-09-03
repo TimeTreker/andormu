@@ -7,6 +7,8 @@ WorkflowDefinition
 WorkflowRevision ───────────────┐
                                │ resolved/pinned
 TaskDefinition revisions ──────┤
+ExecutionBinding revisions ────┤
+AdmissionPolicy revisions ─────┤
 Input bindings ────────────────┤
 Policy bindings ───────────────┤
                                ▼
@@ -35,7 +37,11 @@ Created before execution. It resolves mutable references such as `task@latest` i
 
 ## TaskDefinition vs TaskSpec
 
-A `TaskDefinition` describes a reusable executable contract. A `TaskSpec` is one occurrence of that task inside a workflow, with graph position, inputs, dependency rules, overrides, and resource intent.
+A `TaskDefinition` describes a reusable logical execution contract and requires an exact capability. A `TaskSpec` is one occurrence of that definition inside a workflow, with graph position, inputs, dependency rules, and permitted logical policy overrides. Execution provider, completion model, target, adapter, physical resource intent, and environment admission policy are resolved through a separate `ExecutionBinding`.
+
+## Capability / ExecutionBinding / ExecutionTarget
+
+A `Capability` is the exact versioned semantic match key required by a TaskDefinition. An immutable, environment-scoped `ExecutionBinding` maps that capability to a provider, completion model, adapter, stable logical `ExecutionTarget`, and execution-policy references. The target routes work; the opaque `ExecutionHandle` identifies the backend execution created for one attempt.
 
 ## TaskRun vs TaskAttempt
 

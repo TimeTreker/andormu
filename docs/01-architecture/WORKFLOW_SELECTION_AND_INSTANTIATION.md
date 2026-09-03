@@ -44,7 +44,7 @@ rosbag-processing-v3
 cyberlog-processing-v5
 ```
 
-Each concrete input normally creates a separate WorkflowRun with pinned inputs and ExecutionSnapshot.
+Each concrete input normally creates a separate WorkflowRun with pinned inputs and ExecutionSnapshot. The caller supplies a stable workflow-submission idempotency identity so duplicate event delivery returns the existing run instead of creating another.
 
 ## Granularity rule
 
@@ -57,6 +57,7 @@ It is inappropriate for millions of tiny operations where orchestration overhead
 Andormu owns:
 
 - instantiating a run from the supplied definition/revision and inputs,
+- enforcing workflow-submission idempotency within the declared caller/scope,
 - pinning the resolved execution snapshot,
 - validating graph and bindings,
 - executing and observing the run.

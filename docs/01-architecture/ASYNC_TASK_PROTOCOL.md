@@ -4,7 +4,7 @@
 
 Many useful tasks are longer than a safe synchronous RPC lifetime. Examples include video decoding, point-cloud conversion, large log parsing, or remote compute submission.
 
-Andormu therefore needs a durable asynchronous task protocol.
+Andormu therefore needs a durable deferred-completion protocol. `DEFERRED` is selected by an environment ExecutionBinding and is independent of whether the provider is a service, worker, compute platform, or external runtime.
 
 ## Proposed lifecycle
 
@@ -35,7 +35,7 @@ The handle is backend-specific and must not leak into dependency semantics.
 
 ## Completion notification
 
-Adapters may support one or more of:
+An ExecutionBinding with `completion = DEFERRED` declares one or more supported observation methods:
 
 - callback endpoint,
 - CloudEvents-compatible event,

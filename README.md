@@ -97,7 +97,7 @@ See [`docs/01-architecture/TIMEWAYS_PLATFORM.md`](docs/01-architecture/TIMEWAYS_
 
 ## Logical DAG vs execution realization
 
-A canonical DAG contains **logical work and graph-control nodes**, not deployment/runtime process types.
+A canonical DAG contains **logical work and graph-control nodes**, not deployment/runtime process types. An environment-specific, immutable `ExecutionBinding` resolves each exact capability to provider, completion model, adapter, and stable execution target outside the DAG.
 
 ```text
 Task Node: data.bag.decode@v3
@@ -157,7 +157,7 @@ Accepted architectural decisions are tracked in `DESIGN_STATUS.md` and ADRs. Det
 
 The canonical Phase-0 production example is an OSS/Kafka-triggered data closed loop where Zidormi selects different DAGs for bag files and normal data files. The DAGs use only the business-required subset of safety, preprocess, decoder, encoder, index, result-check, and publication tasks, with execution realized by persistent services, deferred services, workers/data engines, or compute jobs.
 
-See [`docs/01-architecture/PRODUCTION_DATA_LOOP_EXAMPLE.md`](docs/01-architecture/PRODUCTION_DATA_LOOP_EXAMPLE.md).
+See [`docs/01-architecture/PRODUCTION_DATA_LOOP_EXAMPLE.md`](docs/01-architecture/PRODUCTION_DATA_LOOP_EXAMPLE.md) and [`docs/01-architecture/EXECUTION_BINDING.md`](docs/01-architecture/EXECUTION_BINDING.md).
 
 ## Repository map
 

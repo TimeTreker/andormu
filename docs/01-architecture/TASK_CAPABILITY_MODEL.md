@@ -2,53 +2,83 @@
 
 ## Goal
 
-Decouple a workflow's logical requirement from a concrete transient endpoint or runtime implementation.
+Decouple a workflow's logical requirement from environment-specific execution realization and transient backend routing.
 
-## Proposed concepts
+## Object responsibilities
 
-### Capability
+| Object | Question answered | Must not contain |
+|---|---|---|
+| `TaskDefinition` | What logical work and contract are required? | provider, adapter, endpoint, environment capacity |
+| `Capability` | What exact semantic ability must a realization satisfy? | target instance, transport, infrastructure object |
+| `ExecutionBinding` | How is that capability realized in this environment? | DAG topology or business dependency rules |
+| `ExecutionTarget` | Where does the selected adapter route this attempt? | logical task meaning or mutable instance address in the workflow |
 
-A stable semantic execution capability, for example:
+## Capability
+
+A capability is a stable, versioned semantic identifier, for example:
 
 ```text
-data.video.decode@v2
-data.rosbag.parse@v3
-ai.embedding.compute@v1
+data.bag.decode@v3
+data.embedding.encode@v2
+data.metadata.extract@v1
 ```
 
-A capability identifier is not a domain decision by Andormu. Domain platforms select or emit it; Andormu only treats it as an opaque execution requirement with versioned contract metadata.
+It is selected by a domain-authored TaskDefinition, not inferred by Andormu from a filename or task name. It is an exact compatibility requirement, not a request for “latest”.
 
-### ExecutionTarget
+The interface and behavioral guarantees live in the TaskDefinition. The capability provides the match key; it does not duplicate the full contract.
 
-A resolved target or adapter route able to fulfill the capability.
+## ExecutionBinding
 
-Examples:
+An ExecutionBinding is an immutable, environment-scoped mapping from an exact capability to an execution realization. It selects:
 
-- service routing key,
-- worker type,
-- runtime template,
-- compute job adapter,
-- external system integration.
+- provider class;
+- completion model;
+- adapter reference;
+- stable logical ExecutionTarget;
+- supported observation/cancellation behavior;
+- optional AdmissionPolicy reference;
+- optional ResourceIntent for compute realizations.
 
-### TaskDefinition
+The full design is in `EXECUTION_BINDING.md`.
 
-A reusable, versioned definition may bind a capability to execution defaults, input/output contract, retry policy, timeout policy, observability hooks, and resource intent defaults.
+## ExecutionTarget
 
-## Why not fixed endpoints
+`ExecutionTarget` is deliberately narrower than the earlier overloaded concept. It is a stable logical route understood by the chosen adapter, such as a service name, worker type, runtime template, or external integration key.
 
-Embedding a fixed endpoint in WorkflowSpec couples reproducible workflow semantics to ephemeral deployment details and prevents independent service evolution.
+It is not:
+
+- a TaskDefinition or Capability;
+- an ExecutionBinding;
+- a transient IP, Pod name, allocation id, or backend run id;
+- the opaque `ExecutionHandle` returned after dispatch.
+
+An adapter or service registry may resolve an ExecutionTarget to healthy physical instances at dispatch time without changing the pinned binding.
 
 ## Resolution ownership
 
-The final resolver design is still open. Candidates include:
+Before execution, an environment resolver matches every required exact capability to one compatible active ExecutionBinding revision. Andormu pins the result in the `ExecutionSnapshot`.
 
-1. domain platform emits an already-resolved execution target;
-2. Andormu calls a shared execution/service registry;
-3. execution adapter resolves capability to backend target;
-4. a Bronze Dragonflight Execution Gateway performs resolution.
+The implementation boundary remains open: resolution may be provided by Andormu configuration, a shared registry, or a Bronze execution gateway. Regardless of implementation, the semantic result is the same:
 
-The canonical WorkflowSpec should avoid requiring one deployment topology.
+```text
+exact capability
+      │ resolve in environment
+      ▼
+pinned ExecutionBinding revision
+      │ dispatch through adapter
+      ▼
+stable ExecutionTarget -> physical instance/backend execution
+```
 
-## Compatibility rule
+## Compatibility invariants
 
-Capability resolution may change which healthy instance executes an attempt, but it must not silently change the logical TaskDefinition revision or its contract semantics for an already-started WorkflowRun.
+- Resolution must fail before dispatch when no compatible binding exists.
+- One snapshot never follows a mutable binding alias after activation.
+- Routing may select a different healthy physical instance without changing the logical contract.
+- A binding update affects future snapshots only.
+- A provider/runtime migration needs no WorkflowSpec or TaskDefinition revision when the logical contract remains compatible.
+- If inputs, outputs, retry safety, idempotency requirements, or other logical guarantees change incompatibly, the TaskDefinition/capability revision must change.
+
+## Why not fixed endpoints
+
+Embedding endpoints or native runtime objects in WorkflowSpec couples reproducible workflow semantics to ephemeral deployment details and prevents independent execution-plane evolution. Semantic portability requires a stable logical contract plus an environment binding, not portable-looking vendor YAML.

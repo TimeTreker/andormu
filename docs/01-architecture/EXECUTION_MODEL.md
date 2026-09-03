@@ -3,7 +3,7 @@
 ## Submit
 
 1. Validate WorkflowSpec.
-2. Resolve referenced revisions.
+2. Resolve exact TaskDefinition and environment ExecutionBinding/policy revisions.
 3. Create immutable ExecutionSnapshot and digest.
 4. Create WorkflowRun and TaskRuns.
 5. Persist initial state/events.
@@ -18,11 +18,13 @@ For each active WorkflowRun:
 3. Evaluate dependency rules.
 4. Expire timers/timeouts.
 5. Determine newly runnable nodes.
-6. Create TaskAttempts for eligible TaskRuns.
-7. Persist dispatch intent before relying on dispatch.
-8. Deliver idempotent requests through adapters.
-9. Persist callbacks/observed changes.
-10. Recompute workflow/finalizer completion.
+6. Apply logical admission policy to eligible TaskRuns.
+7. Create TaskAttempts for admitted TaskRuns using pinned bindings.
+8. Persist dispatch intent before relying on dispatch.
+9. Deliver idempotent requests through adapters.
+10. Correlate and contract-validate callbacks/observed changes before accepting logical success.
+11. Persist accepted observations/outcomes.
+12. Recompute workflow/finalizer completion.
 
 ## No in-memory-only progress
 
